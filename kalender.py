@@ -42,8 +42,10 @@ def convert(value):
 def load(pid):
     url = (f"https://firestore.googleapis.com/v1/projects/{PROJECT}/databases/(default)"
            f"/documents/personen/{pid}?key={API_KEY}")
+    # Referer mitschicken, damit der API-Schlüssel auf die Planer-Webseite beschränkt werden kann
+    req = urllib.request.Request(url, headers={"Referer": "https://schwabolus.github.io/urlaubsplaner/"})
     try:
-        with urllib.request.urlopen(url, timeout=30) as resp:
+        with urllib.request.urlopen(req, timeout=30) as resp:
             doc = json.load(resp)
     except urllib.error.HTTPError as err:
         if err.code == 404:

@@ -1,0 +1,10 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /personen/{pid} {
+      allow read: if true;
+      allow write: if pid in ['p1', 'p2', 'p3']
+        && request.resource.data.keys().hasOnly(['name', 'anspruch', 'tage', 'arbeitstage', 'vertretung']);
+    }
+  }
+}
