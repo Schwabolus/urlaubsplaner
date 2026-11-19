@@ -127,6 +127,16 @@ table.cal{border-collapse:collapse;width:100%;min-width:780px;table-layout:fixed
 @media (prefers-reduced-motion:no-preference){.bar i{transition:width .25s}}
 body{margin:0}
 [hidden]{display:none!important}
+.abo{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
+.abo h2{font-family:var(--display);font-size:18px;margin:0}
+.abo p{margin:0;font-size:13px;color:var(--muted);max-width:72ch}
+.abo .links{display:flex;flex-wrap:wrap;gap:8px}
+.abo a{font:600 13px var(--body);padding:7px 12px;border-radius:6px;border:1px solid var(--line);color:var(--fg);text-decoration:none;display:inline-flex;align-items:center;gap:6px}
+.abo a:hover{border-color:var(--fg)}
+.abo a:focus-visible{outline:2px solid var(--fg);outline-offset:2px}
+.abo .dot{width:10px;height:10px}
+.abo .p1 .dot{background:var(--p1)} .abo .p2 .dot{background:var(--p2)} .abo .p3 .dot{background:var(--p3)}
+.abo .alle .dot{background:linear-gradient(90deg,var(--p1) 0 33%,var(--p2) 33% 66%,var(--p3) 66%)}
 </style>
 </head>
 <body>
@@ -184,6 +194,12 @@ body{margin:0}
   <div class="scroll"><table class="cal" id="h2"></table></div>
 
   <p class="note">Schulferien bis Juli laut Philippsburger Kalender. Ab dann gilt der baden-württembergische Ferienplan: Sommerferien 29.07.–11.09., Herbstferien 02.–06.11., Weihnachtsferien 23.12.2027–08.01.2028. Bewegliche Ferientage der Schule im Schuljahr 2027/28 sind noch nicht bekannt. Heiligabend und Silvester gelten als normale Arbeitstage.</p>
+
+  <section class="abo" aria-labelledby="abo-h">
+    <h2 id="abo-h">Im iPhone-Kalender abonnieren</h2>
+    <p>Auf dem iPhone antippen und „Abonnieren“ bestätigen. Der Kalender aktualisiert sich danach von selbst, etwa jede halbe bis ganze Stunde.</p>
+    <div class="links" id="abo-links"></div>
+  </section>
 </div>
 
 <script>
@@ -366,6 +382,21 @@ body{margin:0}
     if(td&&(e.key==="Enter"||e.key===" ")){e.preventDefault();toggle(td.dataset.k);}
   });
 
+  render();
+
+  // ---------- Kalender-Abos ----------
+  function renderAbo(){
+    var base=location.host+location.pathname.replace(/[^\/]*$/,"");
+    var proto=location.protocol==="https:"?"webcal://":location.protocol+"//";
+    var box=document.getElementById("abo-links");box.textContent="";
+    PEOPLE.concat(["alle"]).forEach(function(p){
+      var a=document.createElement("a");a.href=proto+base+"kalender-"+p+".ics";a.className=p;
+      var dot=document.createElement("span");dot.className="dot";a.appendChild(dot);
+      a.appendChild(document.createTextNode(p==="alle"?"Alle zusammen":(state[p].name||p)));
+      box.appendChild(a);
+    });
+  }
+  var _render=render;render=function(){_render();renderAbo();};
   render();
 
   // ---------- Daten laden ----------
