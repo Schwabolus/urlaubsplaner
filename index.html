@@ -15,12 +15,8 @@ window.FIREBASE_CONFIG = {
   messagingSenderId: "234014843928",
   appId: "1:234014843928:web:f8e4e40b5b2c37f5d7cf6d"
 };
-// Startdaten: werden nur geschrieben, wenn eine Person in der Datenbank noch fehlt
-window.SEED = {
-  p1:{"anspruch":31,"arbeitstage":[1,2,3,4,5],"name":"Manu","tage":{"01-04":"ganz","01-05":"ganz","02-05":"halb","02-08":"ganz","02-09":"ganz","02-10":"ganz","02-11":"ganz","02-12":"ganz","03-30":"ganz","03-31":"ganz","05-18":"ganz","05-19":"ganz","05-20":"ganz","05-21":"ganz","05-24":"ganz","05-25":"ganz","05-26":"ganz","05-28":"ganz","07-29":"ganz","07-30":"ganz","08-02":"ganz","08-30":"ganz","08-31":"ganz","09-01":"ganz","09-02":"ganz","09-03":"ganz","12-24":"halb","12-31":"halb"},"vertretung":{}},
-  p2:{"anspruch":20,"arbeitstage":[2,3,4,5],"name":"Michi","tage":{"01-05":"ganz","02-09":"ganz","02-10":"ganz","02-11":"ganz","02-12":"ganz","03-30":"ganz","03-31":"ganz","05-18":"ganz","05-19":"ganz","05-20":"ganz","05-21":"ganz","05-25":"ganz","05-26":"ganz","05-28":"ganz","08-31":"ganz","09-01":"ganz","09-02":"ganz","09-03":"ganz"},"vertretung":{}},
-  p3:{"anspruch":0,"arbeitstage":[1,2,3,4,5],"name":"Susanne","tage":{"01-25":"ganz","01-26":"ganz","01-27":"ganz","01-28":"ganz","01-29":"ganz","04-26":"ganz","04-27":"ganz","04-28":"ganz","04-29":"ganz","04-30":"ganz","07-12":"ganz","07-13":"ganz","07-14":"ganz","07-15":"ganz","07-16":"ganz","09-20":"ganz","09-21":"ganz","09-22":"ganz","09-23":"ganz","09-24":"ganz","09-27":"ganz","09-28":"ganz","09-29":"ganz","09-30":"ganz","10-01":"ganz"},"vertretung":{}}
-};
+// Passwortabfrage gegen neugierige Blicke (SHA-256 des Passworts)
+window.PW_HASH = "74fa80adfeda9a242c7d2ca7ce5c55f5c461361ae4f1fdddcbd93e248502c369";
 </script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
@@ -127,6 +123,13 @@ table.cal{border-collapse:collapse;width:100%;min-width:780px;table-layout:fixed
 @media (prefers-reduced-motion:no-preference){.bar i{transition:width .25s}}
 body{margin:0}
 [hidden]{display:none!important}
+.gate{max-width:320px;margin:15vh auto 0;padding-block:24px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:10px}
+.gate h1{margin-bottom:8px}
+.gate label{font-size:13px;color:var(--muted)}
+.gate input{font:16px var(--body);padding:10px 12px;border:1px solid var(--line);border-radius:6px;background:var(--paper);color:var(--fg)}
+.gate input:focus{outline:2px solid var(--p1);outline-offset:1px}
+.gate button{font:600 15px var(--body);padding:10px 12px;border:0;border-radius:6px;background:var(--p1);color:var(--paper);cursor:pointer}
+.gate-err{color:var(--warn);font-size:13px;min-height:1.2em;margin:0}
 .abo{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:8px}
 .abo h2{font-family:var(--display);font-size:18px;margin:0}
 .abo p{margin:0;font-size:13px;color:var(--muted);max-width:72ch}
@@ -140,7 +143,14 @@ body{margin:0}
 </style>
 </head>
 <body>
-<div class="wrap">
+<form class="gate" id="gate" hidden>
+  <h1>Urlaubsplaner 2027</h1>
+  <label for="gate-pw">Passwort</label>
+  <input type="password" id="gate-pw" autocomplete="current-password" autocapitalize="none" autocorrect="off" spellcheck="false">
+  <button type="submit">Öffnen</button>
+  <p class="gate-err" id="gate-err" role="alert"></p>
+</form>
+<div class="wrap" id="app" hidden>
   <header>
     <h1>Urlaubsplaner 2027</h1>
     <p class="sub">Philippsburger Schul- und Ferienkalender. Person oben auswählen, dann Tage anklicken.</p>
@@ -399,8 +409,8 @@ body{margin:0}
   var _render=render;render=function(){_render();renderAbo();};
   render();
 
-  // ---------- Daten laden ----------
-  (function(){
+  // ---------- Daten laden (erst nach richtigem Passwort) ----------
+  function startData(){
     try{
       if(typeof window.FIREBASE_CONFIG!=="object"||!window.firebase)throw new Error("config");
       firebase.initializeApp(window.FIREBASE_CONFIG);
@@ -413,9 +423,6 @@ body{margin:0}
       db.doc("personen/"+p).onSnapshot(function(d){
         if(d.exists){
           if(busy[p])latest[p]=d.data();else apply(p,d.data());
-        }else if(!d.metadata.fromCache&&!loaded[p]&&window.SEED&&window.SEED[p]){
-          // Person fehlt noch in der Datenbank: Startdaten einmalig übernehmen
-          apply(p,window.SEED[p]);save(p);
         }
         if(!d.metadata.fromCache)loaded[p]=true;
         render();
@@ -423,7 +430,25 @@ body{margin:0}
           status("Alles geladen. Änderungen werden sofort für alle gespeichert.");}
       },function(e){failed=true;clearTimeout(timer);status("Die Verbindung zum Speicher ist abgebrochen. Bitte Seite neu öffnen.",true);});
     });
-  })();
+  }
+
+  // ---------- Passwortabfrage ----------
+  var gate=document.getElementById("gate"),app=document.getElementById("app");
+  function unlock(){gate.hidden=true;app.hidden=false;startData();}
+  async function sha256(t){
+    var buf=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(t));
+    return Array.from(new Uint8Array(buf)).map(function(b){return b.toString(16).padStart(2,"0");}).join("");
+  }
+  var ok=false;try{ok=localStorage.getItem("up27-pw")===window.PW_HASH;}catch(e){}
+  if(ok)unlock();
+  else{gate.hidden=false;document.getElementById("gate-pw").focus();}
+  gate.addEventListener("submit",async function(e){
+    e.preventDefault();
+    var err=document.getElementById("gate-err"),inp=document.getElementById("gate-pw");
+    var h;try{h=await sha256(inp.value.trim().toLowerCase());}catch(x){err.textContent="Dieser Browser kann das Passwort nicht prüfen.";return;}
+    if(h===window.PW_HASH){try{localStorage.setItem("up27-pw",h);}catch(x){}unlock();}
+    else{err.textContent="Das Passwort stimmt nicht.";inp.select();}
+  });
 })();
 </script>
 </body>
