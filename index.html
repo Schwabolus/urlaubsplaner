@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex,nofollow">
+<title>Urlaubsplaner 2027</title>
+<script>
+// Firebase-Zugangsdaten (aus der Firebase-Konsole: Projekteinstellungen > Meine Apps > Web-App)
+window.FIREBASE_CONFIG = {
+  apiKey: "AIzaSyDSUrp5woaoQir8jYswz2P5z1D-jzTuMr4",
+  authDomain: "urlaubsplaner-2680f.firebaseapp.com",
+  projectId: "urlaubsplaner-2680f",
+  storageBucket: "urlaubsplaner-2680f.firebasestorage.app",
+  messagingSenderId: "234014843928",
+  appId: "1:234014843928:web:f8e4e40b5b2c37f5d7cf6d"
+};
+// Startdaten: werden nur geschrieben, wenn eine Person in der Datenbank noch fehlt
+window.SEED = {
+  p1:{"anspruch":31,"arbeitstage":[1,2,3,4,5],"name":"Manu","tage":{"01-04":"ganz","01-05":"ganz","02-05":"halb","02-08":"ganz","02-09":"ganz","02-10":"ganz","02-11":"ganz","02-12":"ganz","03-30":"ganz","03-31":"ganz","05-18":"ganz","05-19":"ganz","05-20":"ganz","05-21":"ganz","05-24":"ganz","05-25":"ganz","05-26":"ganz","05-28":"ganz","07-29":"ganz","07-30":"ganz","08-02":"ganz","08-30":"ganz","08-31":"ganz","09-01":"ganz","09-02":"ganz","09-03":"ganz","12-24":"halb","12-31":"halb"},"vertretung":{}},
+  p2:{"anspruch":20,"arbeitstage":[2,3,4,5],"name":"Michi","tage":{"01-05":"ganz","02-09":"ganz","02-10":"ganz","02-11":"ganz","02-12":"ganz","03-30":"ganz","03-31":"ganz","05-18":"ganz","05-19":"ganz","05-20":"ganz","05-21":"ganz","05-25":"ganz","05-26":"ganz","05-28":"ganz","08-31":"ganz","09-01":"ganz","09-02":"ganz","09-03":"ganz"},"vertretung":{}},
+  p3:{"anspruch":0,"arbeitstage":[1,2,3,4,5],"name":"Susanne","tage":{"01-25":"ganz","01-26":"ganz","01-27":"ganz","01-28":"ganz","01-29":"ganz","04-26":"ganz","04-27":"ganz","04-28":"ganz","04-29":"ganz","04-30":"ganz","07-12":"ganz","07-13":"ganz","07-14":"ganz","07-15":"ganz","07-16":"ganz","09-20":"ganz","09-21":"ganz","09-22":"ganz","09-23":"ganz","09-24":"ganz","09-27":"ganz","09-28":"ganz","09-29":"ganz","09-30":"ganz","10-01":"ganz"},"vertretung":{}}
+};
+</script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Narrow:wght@500;700&family=Inter:wght@400;600&display=swap">
+<style>
+/* Layout: Personenleiste oben, darunter zwei Halbjahresblöcke im Stil des Philippsburger Ferienkalenders, Klick auf einen Tag trägt Urlaub ein */
+:root{
+  --bg:#f6f7f9; --paper:#ffffff; --fg:#1b1f27; --muted:#5d6573; --line:#c9ced8;
+  --sa:#bcd3ef; --so:#5f8fd0; --so-fg:#ffffff;
+  --frei:#7fb069; --frei-fg:#10200a;
+  --ferien:#d6ebc9; --bew:#f3bfd6;
+  --p1:#e8790f; --p2:#7b4bb7; --p3:#1f8f84; --warn:#d1243a; --both:#1b1f27;
+  --hover:#fff4c2;
+  --display:"Archivo Narrow","Arial Narrow",Arial,sans-serif;
+  --body:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#14171c; --paper:#1c2028; --fg:#e6e9ef; --muted:#9aa3b2; --line:#363c48;
+  --sa:#2b4466; --so:#3c6fb4; --so-fg:#ffffff;
+  --frei:#4f8a3a; --frei-fg:#ffffff;
+  --ferien:#27402a; --bew:#6b3450;
+  --p1:#f39a3c; --p2:#b58cf0; --p3:#4cc3b4; --warn:#ff5c70; --both:#e6e9ef;
+  --hover:#4a4320;
+  color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#14171c; --paper:#1c2028; --fg:#e6e9ef; --muted:#9aa3b2; --line:#363c48;
+  --sa:#2b4466; --so:#3c6fb4; --so-fg:#ffffff;
+  --frei:#4f8a3a; --frei-fg:#ffffff;
+  --ferien:#27402a; --bew:#6b3450;
+  --p1:#f39a3c; --p2:#b58cf0; --p3:#4cc3b4; --warn:#ff5c70; --both:#e6e9ef;
+  --hover:#4a4320;
+  color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:14px}
+.wrap{max-width:1200px;margin:0 auto;padding-block:24px 40px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;gap:18px}
+h1{font-family:var(--display);font-weight:700;font-size:28px;margin:0;text-wrap:balance}
+.sub{color:var(--muted);margin:4px 0 0}
+.status{font-size:13px;color:var(--muted);min-height:1.2em}
+.status.warn{color:var(--p1)}
+
+.people{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px}
+.person{background:var(--paper);border:2px solid var(--line);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;cursor:pointer;text-align:left;font:inherit;color:inherit}
+.person:focus-visible{outline:3px solid var(--p1);outline-offset:2px}
+.person.active.p1{border-color:var(--p1);box-shadow:0 0 0 2px var(--p1)}
+.person.active.p2{border-color:var(--p2);box-shadow:0 0 0 2px var(--p2)}
+.person.active.p3{border-color:var(--p3);box-shadow:0 0 0 2px var(--p3)}
+.p3 .dot{background:var(--p3)}
+.person .hint{font-size:12px;color:var(--muted);margin:0}
+.konf{color:var(--warn);font-weight:600}
+.cal td.conflict{outline:2px dashed var(--warn);outline-offset:-2px}
+.mk.m3{right:33px;background:var(--p3)}
+.mk.m3.half{background:linear-gradient(to top,var(--p3) 0 50%,transparent 50%);box-shadow:inset 0 0 0 1px var(--p3)}
+.person .top{display:flex;align-items:center;gap:8px}
+.dot{width:14px;height:14px;border-radius:3px;flex:none}
+.p1 .dot{background:var(--p1)} .p2 .dot{background:var(--p2)}
+.person input.name{font:600 16px var(--body);border:1px solid transparent;background:transparent;color:var(--fg);padding:2px 4px;border-radius:4px;min-width:0;flex:1}
+.person input.name:hover,.person input.name:focus{border-color:var(--line)}
+.badge{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.person.active .badge{color:var(--fg);font-weight:600}
+.count{display:flex;align-items:baseline;gap:6px;flex-wrap:wrap;font-variant-numeric:tabular-nums}
+.count b{font-family:var(--display);font-size:26px}
+.count input{width:52px;font:inherit;border:1px solid var(--line);border-radius:4px;background:var(--paper);color:var(--fg);padding:2px 4px}
+.bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden}
+.bar i{display:block;height:100%}
+.p1 .bar i{background:var(--p1)} .p2 .bar i{background:var(--p2)}
+.both{background:var(--paper);border:1px solid var(--line);border-radius:8px;padding:12px 14px;display:flex;flex-direction:column;gap:4px;justify-content:center}
+.both b{font-family:var(--display);font-size:26px;font-variant-numeric:tabular-nums}
+
+.help{font-size:13px;color:var(--muted);margin:0}
+.legend{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:13px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.sw{width:22px;height:14px;border:1px solid var(--line);display:inline-block}
+
+.scroll{overflow-x:auto;background:var(--paper);border:1px solid var(--line);border-radius:6px}
+table.cal{border-collapse:collapse;width:100%;min-width:780px;table-layout:fixed;font-variant-numeric:tabular-nums;user-select:none}
+.cal th{font-family:var(--display);font-size:16px;font-weight:700;padding:6px 4px;border:1px solid var(--line);background:var(--paper)}
+.cal td{border:1px solid var(--line);padding:2px 4px 2px 5px;height:24px;font-size:12.5px;white-space:nowrap;overflow:hidden;position:relative}
+.cal td.empty{background:transparent;border-color:transparent}
+.cal td .n{font-weight:600}
+.cal td .l{font-size:10px;margin-left:3px;opacity:.85}
+.cal td.click{cursor:pointer}
+.cal td.click:hover{background:var(--hover)}
+.cal td.both-off{outline:2px solid var(--both);outline-offset:-2px}
+.mk{position:absolute;top:4px;bottom:4px;width:12px;border-radius:2px}
+.mk.m1{right:18px;background:var(--p1)} .mk.m2{right:3px;background:var(--p2)}
+.mk.m1.half{background:linear-gradient(to top,var(--p1) 0 50%,transparent 50%);box-shadow:inset 0 0 0 1px var(--p1)}
+.mk.m2.half{background:linear-gradient(to top,var(--p2) 0 50%,transparent 50%);box-shadow:inset 0 0 0 1px var(--p2)}
+.mk.m1.off{background:transparent;box-shadow:inset 0 0 0 2px var(--p1)}
+.mk.m2.off{background:transparent;box-shadow:inset 0 0 0 2px var(--p2)}
+.mk.m1.vert{background:repeating-linear-gradient(45deg,var(--p1) 0 2px,transparent 2px 5px)}
+.mk.m2.vert{background:repeating-linear-gradient(45deg,var(--p2) 0 2px,transparent 2px 5px)}
+.wdays{display:flex;gap:4px;flex-wrap:wrap;align-items:center;font-size:12px;color:var(--muted)}
+.wdays button{font:600 12px var(--body);padding:2px 7px;border-radius:4px;border:1px solid var(--line);background:var(--paper);color:var(--muted);cursor:pointer}
+.wdays button:focus-visible{outline:2px solid var(--fg);outline-offset:1px}
+.p1 .wdays button[aria-pressed="true"]{background:var(--p1);border-color:var(--p1);color:var(--paper)}
+.p2 .wdays button[aria-pressed="true"]{background:var(--p2);border-color:var(--p2);color:var(--paper)}
+.sa{background:var(--sa)}
+.so{background:var(--so);color:var(--so-fg)}
+.ferien{background:var(--ferien)}
+.bew{background:var(--bew)}
+.frei{background:var(--frei);color:var(--frei-fg)}
+.note{color:var(--muted);font-size:13px;max-width:72ch;margin:0}
+@media (prefers-reduced-motion:no-preference){.bar i{transition:width .25s}}
+body{margin:0}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Urlaubsplaner 2027</h1>
+    <p class="sub">Philippsburger Schul- und Ferienkalender. Person oben auswählen, dann Tage anklicken.</p>
+  </header>
+
+  <div class="people">
+    <div class="person p1 active" id="card-p1" role="button" tabindex="0" aria-pressed="true">
+      <div class="top"><span class="dot"></span><input class="name" id="name-p1" value="Ich" aria-label="Name Person 1"><span class="badge" id="badge-p1">trägt ein</span></div>
+      <div class="count"><b id="used-p1">0</b> von <input type="number" id="ansp-p1" min="0" max="60" step="0.5" value="30" aria-label="Urlaubsanspruch Person 1"> Tagen · <span id="rest-p1">30 übrig</span></div>
+      <div class="bar"><i id="bar-p1" style="width:0"></i></div>
+      <div class="wdays" id="wd-p1">Arbeitstage:</div>
+    </div>
+    <div class="person p2" id="card-p2" role="button" tabindex="0" aria-pressed="false">
+      <div class="top"><span class="dot"></span><input class="name" id="name-p2" value="Partnerin" aria-label="Name Person 2"><span class="badge" id="badge-p2">auswählen</span></div>
+      <div class="count"><b id="used-p2">0</b> von <input type="number" id="ansp-p2" min="0" max="60" step="0.5" value="30" aria-label="Urlaubsanspruch Person 2"> Tagen · <span id="rest-p2">30 übrig</span></div>
+      <div class="bar"><i id="bar-p2" style="width:0"></i></div>
+      <div class="wdays" id="wd-p2">Arbeitstage:</div>
+      <span class="konf" id="konf-p2"></span>
+    </div>
+    <div class="person p3" id="card-p3" role="button" tabindex="0" aria-pressed="false">
+      <div class="top"><span class="dot"></span><input class="name" id="name-p3" value="Kollegin" aria-label="Name der Kollegin"><span class="badge" id="badge-p3">auswählen</span></div>
+      <div class="count"><b id="used-p3">0</b> Urlaubstage eingetragen</div>
+      <p class="hint" id="hint-p3">In dieser Zeit darf Partnerin keinen Urlaub nehmen und arbeitet auch an ihren freien Tagen.</p>
+    </div>
+    <div class="both">
+      <span class="badge">Gemeinsam frei</span>
+      <div><b id="both-n">0</b> Urlaubstage zusammen</div>
+    </div>
+  </div>
+
+  <p class="help">Ein Klick trägt einen ganzen Urlaubstag ein, der zweite Klick macht einen halben Tag daraus, der dritte löscht ihn. Wochenenden und Feiertage brauchen keinen Urlaub und lassen sich nicht anklicken. An einem Tag, an dem die Person sonst nicht arbeitet, schaltet ein Klick die Urlaubsvertretung ein: Dann ist es ein Arbeitstag.</p>
+  <div class="status" id="status" role="status">Lade gespeicherte Urlaubstage …</div>
+
+  <div class="legend" aria-label="Legende">
+    <span><i class="sw" style="background:var(--p1)"></i><span id="leg-p1">Ich</span></span>
+    <span><i class="sw" style="background:var(--p2)"></i><span id="leg-p2">Partnerin</span></span>
+    <span><i class="sw" style="background:var(--p3)"></i><span id="leg-p3">Kollegin</span></span>
+    <span><i class="sw" style="outline:2px dashed var(--warn);outline-offset:-2px"></i>Urlaub kollidiert</span>
+    <span><i class="sw" style="background:linear-gradient(to top,var(--fg) 0 50%,var(--paper) 50%)"></i>Halber Tag</span>
+    <span><i class="sw" style="background:transparent;box-shadow:inset 0 0 0 2px var(--fg)"></i>Kein Arbeitstag</span>
+    <span><i class="sw" style="background:repeating-linear-gradient(45deg,var(--fg) 0 2px,transparent 2px 5px)"></i>Urlaubsvertretung</span>
+    <span><i class="sw" style="outline:2px solid var(--both);outline-offset:-2px"></i>Beide frei</span>
+    <span><i class="sw frei"></i>Feiertag</span>
+    <span><i class="sw ferien"></i>Schulferien</span>
+    <span><i class="sw bew"></i>Unterrichtsfrei</span>
+    <span><i class="sw sa"></i>Samstag</span>
+    <span><i class="sw so"></i>Sonntag</span>
+  </div>
+
+  <div class="scroll"><table class="cal" id="h1"></table></div>
+  <div class="scroll"><table class="cal" id="h2"></table></div>
+
+  <p class="note">Schulferien bis Juli laut Philippsburger Kalender. Ab dann gilt der baden-württembergische Ferienplan: Sommerferien 29.07.–11.09., Herbstferien 02.–06.11., Weihnachtsferien 23.12.2027–08.01.2028. Bewegliche Ferientage der Schule im Schuljahr 2027/28 sind noch nicht bekannt. Heiligabend und Silvester gelten als normale Arbeitstage.</p>
+</div>
+
+<script>
+(function(){
+  var MON=["Jan 27","Feb 27","Mrz 27","Apr 27","Mai 27","Jun 27","Jul 27","Aug 27","Sep 27","Okt 27","Nov 27","Dez 27"];
+  var WD=["So","Mo","Di","Mi","Do","Fr","Sa"];
+  function key(m,d){return (m<10?"0":"")+m+"-"+(d<10?"0":"")+d;}
+  function range(set,m1,d1,m2,d2){var dt=new Date(2027,m1-1,d1),end=new Date(2027,m2-1,d2);
+    while(dt<=end){set[key(dt.getMonth()+1,dt.getDate())]=1;dt.setDate(dt.getDate()+1);}}
+  var labels={"01-01":"Neujahr","01-06":"Hl. drei Könige","02-04":"Schmu. Do.","02-08":"Fasching","02-09":"Fasching",
+    "03-25":"Gründonn.","03-26":"Karfreitag","03-28":"Ostern","03-29":"Ostern","05-01":"Tag d. Arbeit","05-06":"Christi H.",
+    "05-16":"Pfingsten","05-17":"Pfingsten","05-27":"Fronleichn.","10-03":"Dt. Einheit","11-01":"Allerheiligen",
+    "12-24":"Hl. Abend","12-25":"Weihnachten","12-26":"Weihnachten","12-31":"Silvester"};
+  var feiertag={"01-01":1,"01-06":1,"03-26":1,"03-29":1,"05-06":1,"05-17":1,"05-27":1,"11-01":1};
+  var ferien={}; range(ferien,1,1,1,8); range(ferien,3,25,4,2); range(ferien,5,18,5,28); range(ferien,7,29,9,11); range(ferien,11,2,11,6); range(ferien,12,23,12,31);
+  var bew={"02-05":1,"05-07":1}; range(bew,2,8,2,12);
+  function wd(k){var p=k.split("-");return new Date(2027,+p[0]-1,+p[1]).getDay();}
+  function workday(k){var w=wd(k);return w!==0&&w!==6&&!feiertag[k];}
+
+  var state={p1:{name:"Ich",anspruch:30,tage:{},arbeitstage:[1,2,3,4,5],vertretung:{}},p2:{name:"Partnerin",anspruch:30,tage:{},arbeitstage:[1,2,3,4,5],vertretung:{}},
+    p3:{name:"Kollegin",anspruch:0,tage:{},arbeitstage:[1,2,3,4,5],vertretung:{}}};
+  var PEOPLE=["p1","p2","p3"];
+  // p2 vertritt die Kollegin (p3): an deren Urlaubstagen arbeitet p2 immer und darf keinen Urlaub nehmen
+  function covering(k){return workday(k)&&!!state.p3.tage[k];}
+  // Arbeitet Person p an Tag k? (regulärer Arbeitstag oder Urlaubsvertretung, nie an Wochenende/Feiertag)
+  function regular(p,k){return workday(k)&&state[p].arbeitstage.indexOf(wd(k))>=0;}
+  function works(p,k){return workday(k)&&(regular(p,k)||!!state[p].vertretung[k]||(p==="p2"&&covering(k)));}
+  // Anteil, zu dem Person p an Werktag k frei hat (0, 0.5, 1)
+  function offShare(p,k){if(!workday(k))return 0;if(!works(p,k))return 1;var t=state[p].tage[k];return t==="halb"?0.5:t?1:0;}
+  var active="p1";
+  try{var a=localStorage.getItem("up27-active");if(a==="p1"||a==="p2"||a==="p3")active=a;}catch(e){}
+
+  // ---------- Kalender aufbauen ----------
+  function build(id,from){
+    var h="<thead><tr>";
+    for(var m=from;m<from+6;m++)h+="<th>"+MON[m]+"</th>";
+    h+="</tr></thead><tbody>";
+    for(var d=1;d<=31;d++){
+      h+="<tr>";
+      for(var m=from;m<from+6;m++){
+        if(d>new Date(2027,m+1,0).getDate()){h+='<td class="empty"></td>';continue;}
+        var k=key(m+1,d),w=new Date(2027,m,d).getDay(),cls=[];
+        if(w===6)cls.push("sa");if(w===0)cls.push("so");
+        if(w!==0&&w!==6){if(bew[k])cls.push("bew");if(ferien[k])cls.push("ferien");if(feiertag[k])cls.push("frei");}
+        if(workday(k))cls.push("click");
+        var lab=labels[k]||"";
+        h+='<td class="'+cls.join(" ")+'" data-k="'+k+'"'+(workday(k)?' tabindex="0"':"")+'><span class="n">'+d+". "+WD[w]+"</span>"+(lab?'<span class="l">'+lab+"</span>":"")+'<i class="mk m3" hidden></i><i class="mk m1" hidden></i><i class="mk m2" hidden></i></td>';
+      }
+      h+="</tr>";
+    }
+    document.getElementById(id).innerHTML=h+"</tbody>";
+  }
+  build("h1",0);build("h2",6);
+  var cells={};
+  Array.prototype.forEach.call(document.querySelectorAll("td[data-k]"),function(td){cells[td.dataset.k]=td;});
+
+  // ---------- Anzeige ----------
+  function used(p){var s=0,t=state[p].tage;for(var k in t){if(!works(p,k))continue;s+=t[k]==="halb"?0.5:1;}return s;}
+  var WDN=["","Mo","Di","Mi","Do","Fr"];
+  ["p1","p2"].forEach(function(p){
+    var box=document.getElementById("wd-"+p);
+    for(var i=1;i<=5;i++){var b=document.createElement("button");b.type="button";b.textContent=WDN[i];b.dataset.wd=i;box.appendChild(b);}
+    box.addEventListener("click",function(e){
+      var b=e.target.closest("button");if(!b)return;e.stopPropagation();
+      if(readOnly){status("Du kannst hier nur ansehen, nicht eintragen.",true);return;}
+      var i=+b.dataset.wd,a=state[p].arbeitstage.slice(),pos=a.indexOf(i);
+      if(pos>=0)a.splice(pos,1);else a.push(i);a.sort();
+      state[p].arbeitstage=a;render();save(p);
+    });
+  });
+  function fmt(n){return String(n).replace(".",",");}
+  function render(){
+    ["p1","p2"].forEach(function(p){
+      var st=state[p],u=used(p),an=+st.anspruch||0;
+      var nameEl=document.getElementById("name-"+p);
+      if(document.activeElement!==nameEl)nameEl.value=st.name;
+      var ansEl=document.getElementById("ansp-"+p);
+      if(document.activeElement!==ansEl)ansEl.value=an;
+      document.getElementById("leg-"+p).textContent=st.name||(p==="p1"?"Person 1":"Person 2");
+      document.getElementById("used-"+p).textContent=fmt(u);
+      var rest=an-u;
+      document.getElementById("rest-"+p).textContent=rest>=0?fmt(rest)+" übrig":fmt(-rest)+" zu viel";
+      document.getElementById("bar-"+p).style.width=Math.min(100,an?u/an*100:0)+"%";
+      var card=document.getElementById("card-"+p);
+      card.classList.toggle("active",p===active);card.setAttribute("aria-pressed",p===active);
+      document.getElementById("badge-"+p).textContent=p===active?"trägt ein":"auswählen";
+      Array.prototype.forEach.call(document.querySelectorAll("#wd-"+p+" button"),function(b){
+        b.setAttribute("aria-pressed",st.arbeitstage.indexOf(+b.dataset.wd)>=0);});
+    });
+    var n3=document.getElementById("name-p3");
+    if(document.activeElement!==n3)n3.value=state.p3.name;
+    var nm2=state.p2.name||"Person 2",nm3=state.p3.name||"Kollegin";
+    document.getElementById("leg-p3").textContent=nm3;
+    document.getElementById("used-p3").textContent=fmt(used("p3"));
+    document.getElementById("hint-p3").textContent="In dieser Zeit darf "+nm2+" keinen Urlaub nehmen und arbeitet auch an ihren freien Tagen.";
+    var c3=document.getElementById("card-p3");c3.classList.toggle("active",active==="p3");c3.setAttribute("aria-pressed",active==="p3");
+    document.getElementById("badge-p3").textContent=active==="p3"?"trägt ein":"auswählen";
+    var konf=0;
+    var both=0;
+    for(var k in cells){
+      var td=cells[k],t=[];
+      ["p1","p2"].forEach(function(p,i){
+        var mk=td.children[td.children.length-2+i],u=works(p,k)?state[p].tage[k]:null;
+        var off=workday(k)&&!works(p,k),vert=workday(k)&&!regular(p,k)&&(!!state[p].vertretung[k]||(p==="p2"&&covering(k)));
+        mk.hidden=!(u||off||vert);
+        mk.classList.toggle("half",u==="halb");mk.classList.toggle("off",off);mk.classList.toggle("vert",vert&&!u);
+        var nm=state[p].name||(i?"Person 2":"Person 1");
+        if(u)t.push(nm+": Urlaub"+(u==="halb"?" (½)":""));
+        else if(off)t.push(nm+": kein Arbeitstag");
+        else if(vert)t.push(nm+": Urlaubsvertretung");
+      });
+      var m3=td.children[td.children.length-3],u3=works("p3",k)?state.p3.tage[k]:null;
+      m3.hidden=!u3;m3.classList.toggle("half",u3==="halb");
+      if(u3)t.push(nm3+": Urlaub"+(u3==="halb"?" (½)":""));
+      var clash=!!(u3&&state.p2.tage[k]&&workday(k));
+      td.classList.toggle("conflict",clash);if(clash){konf++;t.push("Achtung: "+nm2+" darf hier keinen Urlaub nehmen");}
+      var share=Math.min(offShare("p1",k),offShare("p2",k));
+      td.classList.toggle("both-off",share>0);both+=share;
+      td.title=(labels[k]?labels[k]+(t.length?" · ":""):"")+t.join(" · ");
+    }
+    document.getElementById("both-n").textContent=fmt(both);
+    document.getElementById("konf-p2").textContent=konf?(konf===1?"1 Urlaubstag":konf+" Urlaubstage")+" in "+nm3+"s Urlaub (rot gestrichelt)":"";
+  }
+
+  // ---------- Speichern ----------
+  var db=null,canWrite=true,readOnly=false,queue={p1:Promise.resolve(),p2:Promise.resolve(),p3:Promise.resolve()},busy={p1:0,p2:0,p3:0},latest={};
+  var statusEl=document.getElementById("status");
+  function status(t,warn){statusEl.textContent=t;statusEl.classList.toggle("warn",!!warn);}
+  function body(p){var s=state[p];return {name:String(s.name||"").slice(0,40),anspruch:+s.anspruch||0,tage:Object.assign({},s.tage),
+    arbeitstage:s.arbeitstage.slice(),vertretung:Object.assign({},s.vertretung)};}
+  function save(p){
+    if(!db||readOnly)return;
+    busy[p]++;
+    queue[p]=queue[p].then(function(){return db.doc("personen/"+p).set(body(p));})
+      .then(function(){status("Gespeichert");},function(e){
+        if(e&&e.code==="permission-denied"){status("Der Speicher hat die Änderung abgelehnt. Bitte Firestore-Regeln prüfen.",true);}
+        else status("Speichern hat nicht geklappt. Bitte gleich noch einmal klicken.",true);
+      }).then(function(){busy[p]--;if(!busy[p]&&latest[p]){apply(p,latest[p]);latest[p]=null;render();}});
+  }
+  function apply(p,d){
+    if(!d)return;
+    state[p]={name:typeof d.name==="string"?d.name:state[p].name,anspruch:typeof d.anspruch==="number"?d.anspruch:30,
+      tage:(d.tage&&typeof d.tage==="object")?Object.assign({},d.tage):{},
+      arbeitstage:Array.isArray(d.arbeitstage)?d.arbeitstage.filter(function(x){return x>=1&&x<=5;}):[1,2,3,4,5],
+      vertretung:(d.vertretung&&typeof d.vertretung==="object")?Object.assign({},d.vertretung):{}};
+  }
+
+  // ---------- Bedienung ----------
+  function setActive(p){if(PEOPLE.indexOf(p)<0)p="p1";active=p;try{localStorage.setItem("up27-active",p);}catch(e){}render();}
+  PEOPLE.forEach(function(p){
+    var card=document.getElementById("card-"+p);
+    card.addEventListener("click",function(e){if(e.target.tagName!=="INPUT")setActive(p);});
+    card.addEventListener("keydown",function(e){if(e.target===card&&(e.key==="Enter"||e.key===" ")){e.preventDefault();setActive(p);}});
+    var n=document.getElementById("name-"+p);
+    n.addEventListener("focus",function(){setActive(p);});
+    n.addEventListener("change",function(){var v=n.value.trim();if(v===state[p].name)return;state[p].name=v;render();save(p);});
+    var an=document.getElementById("ansp-"+p);
+    if(an)an.addEventListener("change",function(){var v=Math.max(0,Math.min(60,parseFloat(an.value)||0));if(v===state[p].anspruch)return;state[p].anspruch=v;render();save(p);});
+  });
+  function toggle(k){
+    if(readOnly){status("Du kannst hier nur ansehen, nicht eintragen.",true);return;}
+    var s=state[active];
+    if(active==="p2"&&covering(k)&&!s.tage[k]){
+      status((state.p3.name||"Die Kollegin")+" hat an diesem Tag Urlaub. "+(state.p2.name||"Sie")+" muss vertreten und darf keinen Urlaub nehmen.",true);return;
+    }
+    if(!regular(active,k)&&!(active==="p2"&&covering(k))){
+      // Kein regulärer Arbeitstag: Klick schaltet die Urlaubsvertretung um
+      if(s.vertretung[k]){delete s.vertretung[k];delete s.tage[k];}else s.vertretung[k]=1;
+      render();save(active);return;
+    }
+    var t=s.tage,cur=t[k];
+    if(!cur)t[k]="ganz";else if(cur==="ganz")t[k]="halb";else delete t[k];
+    render();save(active);
+  }
+  document.querySelector(".wrap").addEventListener("click",function(e){
+    var td=e.target.closest("td.click");if(td)toggle(td.dataset.k);
+  });
+  document.querySelector(".wrap").addEventListener("keydown",function(e){
+    var td=e.target.closest&&e.target.closest("td.click");
+    if(td&&(e.key==="Enter"||e.key===" ")){e.preventDefault();toggle(td.dataset.k);}
+  });
+
+  render();
+
+  // ---------- Daten laden ----------
+  (function(){
+    try{
+      if(typeof window.FIREBASE_CONFIG!=="object"||!window.firebase)throw new Error("config");
+      firebase.initializeApp(window.FIREBASE_CONFIG);
+      db=firebase.firestore();
+    }catch(e){status("Speicher ist noch nicht eingerichtet. Einträge gehen beim Schließen verloren.",true);return;}
+    var loaded={},failed=false;
+    var timer=setTimeout(function(){status("Die gespeicherten Tage sind noch nicht erreichbar. Was du siehst, ist evtl. nicht aktuell.",true);},10000);
+    // Jede Person einzeln abonnieren (die Firestore-Regeln erlauben Lesen nur für p1, p2, p3)
+    PEOPLE.forEach(function(p){
+      db.doc("personen/"+p).onSnapshot(function(d){
+        if(d.exists){
+          if(busy[p])latest[p]=d.data();else apply(p,d.data());
+        }else if(!d.metadata.fromCache&&!loaded[p]&&window.SEED&&window.SEED[p]){
+          // Person fehlt noch in der Datenbank: Startdaten einmalig übernehmen
+          apply(p,window.SEED[p]);save(p);
+        }
+        if(!d.metadata.fromCache)loaded[p]=true;
+        render();
+        if(!failed&&PEOPLE.every(function(q){return loaded[q];})){clearTimeout(timer);
+          status("Alles geladen. Änderungen werden sofort für alle gespeichert.");}
+      },function(e){failed=true;clearTimeout(timer);status("Die Verbindung zum Speicher ist abgebrochen. Bitte Seite neu öffnen.",true);});
+    });
+  })();
+})();
+</script>
+</body>
+</html>
